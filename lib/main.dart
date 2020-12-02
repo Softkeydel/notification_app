@@ -1,5 +1,9 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'dart:convert';
+
 
 void main() {
   runApp(MyApp());
@@ -7,8 +11,10 @@ void main() {
 
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
+
   @override
   Widget build(BuildContext context) {
+    // fetchProducts();
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
@@ -27,14 +33,30 @@ class MyApp extends StatelessWidget {
         // closer together (more dense) than on mobile platforms.
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: 'Flutter Notification app'),
     );
   }
+}
+
+sendNotification(String token, String msg) async {
+
+  final response = await http.post('https://fcm.googleapis.com/fcm/send',
+      body: json.encode({
+        "to": token,
+        "notification": {
+          "title": 'You have a new message',
+          "body": msg,
+        }
+  }),
+      headers: { 'Content-type': 'application/json',
+        "Authorization": "key=AAAAdWtohHE:APA91bG_E6HVrQcpJbr03RlKHWDe-3jSjQhp5bfPjFkyzdKNkOZB3JiEi6hkRzHkQwuhrzW6W2H1WAmJrp1sLqHnwUxXQ2Z_ir5-Y0ZoHODiTL-ks-BAO__w7L-ztorCqOys0-agOb-Pw8oM215rLzdwrxWY7tqN-Q"
+  });
 }
 
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key key, this.title}) : super(key: key);
 
+  final String title;
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
   // how it looks.
@@ -44,7 +66,7 @@ class MyHomePage extends StatefulWidget {
   // used by the build method of the State. Fields in a Widget subclass are
   // always marked "final".
 
-  final String title;
+
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
@@ -52,10 +74,9 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  FirebaseMessaging messaging = FirebaseMessaging();
-  int _counter = 0;
-  String notification;
-
+  final FirebaseMessaging messaging = FirebaseMessaging();
+  final textEditingController = TextEditingController();
+  String msg;
 
   @override
   void initState() {
@@ -64,22 +85,27 @@ class _MyHomePageState extends State<MyHomePage> {
 
     messaging.configure(
       onMessage: (message) async{
+        print(message);
         setState(() {
-          notification = message["notification"]["title"];
+          msg = message["notification"]["body"];
         });
       }
     );
   }
 
+  @override
+  void dispose() {
+    // Clean up the controller when the widget is disposed.
+    textEditingController.dispose();
+    super.dispose();
+  }
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+
+  void onClick() {
+    FirebaseMessaging().getToken().then((token) {
+      if(!textEditingController.text.isEmpty) {
+        sendNotification(token, textEditingController.text);
+      }
     });
   }
 
@@ -117,22 +143,31 @@ class _MyHomePageState extends State<MyHomePage> {
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text(
-              notification == null ?
-              'You have no messeges' : 'You have received',
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextField(
+                decoration: InputDecoration(
+                  icon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                  hintText: 'Enter your message',
+                ),
+                textCapitalization: TextCapitalization.sentences,
+                controller: textEditingController,
+              ),
             ),
             Text(
-              notification == null ?
-              '' : '$notification',
-              style: Theme.of(context).textTheme.headline4,
+              msg == null ? '' : 'You have a new message',
+            ),
+            Text(msg == null ? '' : '$msg',
+              style: Theme.of(context).textTheme.headline5,
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
+        onPressed: onClick,
         tooltip: 'Increment',
-        child: Icon(Icons.add),
+        child: Icon(Icons.send),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
